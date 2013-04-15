@@ -1,0 +1,82 @@
+<html>
+  <head>
+    <title>Gallery Generator</title>
+    <link href="http://500px.com/assets/application.css" media="screen, projection" rel="stylesheet" type="text/css">
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js"></script>
+    <script type='text/javascript' src='lib/knockout-2.2.1.js'></script>
+    <script type='text/javascript' src='lib/500px.js'></script>
+    <script type='text/javascript' src='lib/knockout-sortable.min.js'></script>
+    <script type='text/javascript'>
+      $.fn.tmpl=function(a){var b=$(this[0]).html().trim();if(a){for(k in a){b=b.replace(new RegExp("\${"+k+"}","g"),a[k])}}return $(b)};
+
+      $(function() {
+        var SimpleListModel = function(items) {
+          var _this = this;
+          this.dummy = ko.observable(0);
+          this.items = ko.observableArray(items);
+          this.itemToAdd = ko.observable("");
+          this.removeMe = function(item, evt) {
+            evt.preventDefault();
+            _this.items.remove(item);
+          }
+          this.template_fn = function() {
+            this.dummy();
+            this.items();
+            var clone = $(".blog-gallery").clone();
+            ko.cleanNode(clone);
+            clone.attr("data-bind",null);
+            clone.find("*").attr("data-bind",null);
+            return $(clone).wrap("<p></p>").parent().html();
+          };
+          this.template = ko.computed(this.template_fn, this);
+          this.addItem = function() {
+            var _this = this;
+            if (this.itemToAdd() != "") {
+              var num_list = this.itemToAdd().match(/\d+/g);
+              var photo_id = num_list[num_list.length - 1];
+              _500px.api('/photos/' + photo_id, { image_size: 3 }, function (response) {
+                  if (response.success) {
+                    _this.items.push(response.data.photo); // Adds the item. Writing to the "items" observableArray causes any associated UI to update.
+                    _this.itemToAdd(""); // Clears the text box, because it's bound to the "itemToAdd" observable
+                  }
+                  });
+            }
+          }.bind(this);  // Ensure that "this" is always this view model
+        };
+        var a = new SimpleListModel([]);
+        setInterval(function() {
+            a.dummy(a.dummy()+1);
+        }, 1000); // need to compute after dom changes
+        ko.applyBindings(a);
+        a.itemToAdd("/123");
+
+        _500px.init({ sdk_key: '06a5153f2e5300239ce58dc57e7531a13e9fded3' });
+    });
+    </script>
+  </head>
+  <body>
+    <div id="container" style="width:720px; margin: 0 auto;">
+    <form data-bind="submit: addItem">
+      New item:
+      <input data-bind='value: itemToAdd, valueUpdate: "afterkeypress afterkeydown"' />
+      <button type="submit">Add</button>
+      <p>Gallery Preview:</p>
+<div class="blog-gallery" data-bind="sortable: items">
+  <div class="photo medium" data-bind="click: $root.removeMe">
+    <a data-bind="attr: { href: '/photo/' + id }">
+      <img alt="" data-bind="attr: { src: image_url }" />
+    </a>
+    <div class="userdetails">
+      <div class="title"><a data-bind="text: name, attr: { href: '/photo/' + id }"></a></div>
+      <div class="info"><a data-bind="text: (user.firstname + ' ' + user.lastname), attr: { href: ('/' + user.username) }"></a></div>
+    </div>
+  </div>
+</div>
+    </form>
+    <br style="clear: both;"/>
+    <p>HTML:</p>
+    <textarea data-bind="text: template"></textarea>
+    </div>
+  </body>
+</html>
